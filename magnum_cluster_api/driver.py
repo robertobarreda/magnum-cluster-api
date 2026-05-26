@@ -16,7 +16,6 @@
 from __future__ import annotations
 
 import keystoneauth1  # type: ignore
-from eventlet import tpool  # type: ignore
 from heatclient import exc  # type: ignore
 from magnum import objects as magnum_objects  # type: ignore
 from magnum.common import exception as magnum_exception  # type: ignore
@@ -109,7 +108,7 @@ class BaseDriver(driver.Driver):
     @property
     def kube_client(self):
         if not hasattr(self, "_kube_client"):
-            self._kube_client = tpool.Proxy(magnum_cluster_api.KubeClient())
+            self._kube_client = magnum_cluster_api.KubeClient()
         return self._kube_client
 
     def create_cluster(
