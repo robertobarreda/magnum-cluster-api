@@ -19,7 +19,20 @@ from magnum_cluster_api.integrations import common
 
 
 def test_is_service_enabled_openstacksdk(mocker):
-    services = mock.Mock(return_value=iter([SimpleNamespace(enabled=True)]))
+    services = mock.Mock(return_value=iter([{"enabled": True}]))
+    keystone = SimpleNamespace(
+        client=SimpleNamespace(services=lambda **kwargs: services(**kwargs))
+    )
+    osc = mock.Mock()
+    osc.keystone.return_value = keystone
+    mocker.patch("magnum_cluster_api.clients.get_openstack_api").return_value = osc
+
+    assert common.is_service_enabled("sharev2") is True
+    services.assert_called_once_with(type="sharev2")
+
+
+def test_is_service_enabled_openstacksdk_is_enabled_field(mocker):
+    services = mock.Mock(return_value=iter([SimpleNamespace(is_enabled=True)]))
     keystone = SimpleNamespace(
         client=SimpleNamespace(services=lambda **kwargs: services(**kwargs))
     )

@@ -48,8 +48,20 @@ def is_service_enabled(service_type: str) -> bool:
         LOG.exception("Failed to list services")
         raise exception.ServicesListFailed()
 
-    if service and service[0].enabled:
-        return True
+    if service:
+        try:
+            service_enabled = getattr(service[0], "enabled")
+        except AttributeError:
+            service_enabled = None
+        if service_enabled is None and hasattr(service[0], "get"):
+            service_enabled = service[0].get("enabled")
+        if service_enabled is None:
+            try:
+                service_enabled = getattr(service[0], "is_enabled")
+            except AttributeError:
+                service_enabled = None
+        if service_enabled:
+            return True
 
     LOG.info("There is no %s service enabled in the cloud.", service_type)
     return False
