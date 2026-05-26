@@ -43,9 +43,10 @@ pub struct ClusterLabels {
     pub cilium_hubble_ui_enabled: String,
 
     /// Enable the use of the Cinder CSI driver for the cluster.
-    #[builder(default = true)]
-    #[pyo3(default = true)]
-    pub cinder_csi_enabled: bool,
+    /// Note: OpenStack labels are always strings, so this accepts "true"/"false".
+    #[builder(default="true".to_owned())]
+    #[pyo3(default="true".to_owned())]
+    pub cinder_csi_enabled: String,
 
     /// The tag of the Cinder CSI container image to use for the cluster.
     #[builder(default="v1.32.0".to_owned())]
@@ -53,9 +54,10 @@ pub struct ClusterLabels {
     pub cinder_csi_plugin_tag: String,
 
     /// Enable the use of the Manila CSI driver for the cluster.
-    #[builder(default = true)]
-    #[pyo3(default = true)]
-    pub manila_csi_enabled: bool,
+    /// Note: OpenStack labels are always strings, so this accepts "true"/"false".
+    #[builder(default="true".to_owned())]
+    #[pyo3(default="true".to_owned())]
+    pub manila_csi_enabled: String,
 
     /// The tag of the Manila CSI container image to use for the cluster.
     #[builder(default="v1.32.0".to_owned())]
@@ -117,6 +119,14 @@ impl ClusterLabels {
     /// Parses the string label value "true"/"false" to a boolean.
     pub fn is_cilium_hubble_ui_enabled(&self) -> bool {
         self.cilium_hubble_ui_enabled.eq_ignore_ascii_case("true")
+    }
+
+    pub fn is_cinder_csi_enabled(&self) -> bool {
+        self.cinder_csi_enabled.eq_ignore_ascii_case("true")
+    }
+
+    pub fn is_manila_csi_enabled(&self) -> bool {
+        self.manila_csi_enabled.eq_ignore_ascii_case("true")
     }
 
     pub fn get_cloud_provider_tag(&self) -> String {
@@ -481,6 +491,17 @@ mod tests {
             .build();
 
         assert_eq!(labels.get_cloud_provider_tag(), "v1.28.0");
+    }
+
+    #[test]
+    fn test_bool_labels_parse_from_openstack_strings() {
+        let labels = ClusterLabels::builder()
+            .cinder_csi_enabled("TRUE".to_owned())
+            .manila_csi_enabled("false".to_owned())
+            .build();
+
+        assert!(labels.is_cinder_csi_enabled());
+        assert!(!labels.is_manila_csi_enabled());
     }
 
     #[test]
