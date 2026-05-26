@@ -112,6 +112,29 @@ def test_delete_server_group_openstacksdk(mocker, context):
     )
 
 
+def test_lookup_flavor_novaclient():
+    flavor = SimpleNamespace(name="m1.medium", id="flavor-id")
+    nova = SimpleNamespace(
+        flavors=SimpleNamespace(list=mock.Mock(return_value=[flavor]))
+    )
+    osc = mock.Mock()
+    osc.nova.return_value = nova
+
+    assert utils.lookup_flavor(osc, "m1.medium") == flavor
+    nova.flavors.list.assert_called_once_with()
+
+
+def test_lookup_flavor_openstacksdk():
+    flavor = SimpleNamespace(name="m1.medium", id="flavor-id")
+    flavors = mock.Mock(return_value=iter([flavor]))
+    nova = SimpleNamespace(flavors=flavors)
+    osc = mock.Mock()
+    osc.nova.return_value = nova
+
+    assert utils.lookup_flavor(osc, "flavor-id") == flavor
+    flavors.assert_called_once_with()
+
+
 class TestGenerateCloudControllerManagerConfig:
     @pytest.fixture(autouse=True)
     def setup(self, context, pykube_api, mocker):

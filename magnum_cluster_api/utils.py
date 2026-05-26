@@ -999,14 +999,37 @@ def format_event_message(event: pykube.Event):
     )
 
 
+def list_flavors(cli: clients.OpenStackClients) -> typing.Iterable[flavors.Flavor]:
+    nova = cli.nova()
+    flavor_manager = nova.flavors
+
+    if callable(flavor_manager):
+        return flavor_manager()
+
+    if hasattr(flavor_manager, "list"):
+        return flavor_manager.list()
+
+    return flavor_manager
+
+
+def _get_resource_attr(resource, attr: str):
+    if hasattr(resource, "get"):
+        return resource.get(attr)
+
+    return getattr(resource, attr, None)
+
+
 def lookup_flavor(cli: clients.OpenStackClients, flavor: str) -> flavors.Flavor:
     """Lookup a flavor either by name or id."""
 
     if flavor is None:
         return
-    flavor_list = cli.nova().flavors.list()
+    flavor_list = list_flavors(cli)
     for f in flavor_list:
-        if f.name == flavor or f.id == flavor:
+        if (
+            _get_resource_attr(f, "name") == flavor
+            or _get_resource_attr(f, "id") == flavor
+        ):
             return f
     raise exception.FlavorNotFound(flavor=flavor)
 
