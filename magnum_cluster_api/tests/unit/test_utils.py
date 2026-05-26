@@ -13,6 +13,7 @@
 # under the License.
 
 import textwrap
+from types import SimpleNamespace
 from unittest import mock
 
 import pykube
@@ -42,6 +43,73 @@ def test_generate_cluster_api_name(mocker):
     )
 
     assert len(potential_node_name) <= 63
+
+
+def test_get_server_group_id_openstacksdk(mocker, context):
+    server_group = SimpleNamespace(name="target", id="server-group-id")
+    server_groups = mock.Mock(return_value=[server_group])
+    nova = SimpleNamespace(server_groups=lambda **kwargs: server_groups(**kwargs))
+    osc = mock.Mock()
+    osc.nova.return_value = nova
+    mocker.patch("magnum_cluster_api.clients.get_openstack_api").return_value = osc
+
+    server_group_id = utils.get_server_group_id(
+        context, "target", "test-get-server-group-id-openstacksdk"
+    )
+
+    assert server_group_id == "server-group-id"
+    server_groups.assert_called_once_with(all_projects=context.is_admin)
+
+
+def test_ensure_server_group_openstacksdk(mocker, context):
+    create_server_group = mock.Mock(
+        return_value=SimpleNamespace(id="created-server-group-id")
+    )
+    nova = SimpleNamespace(
+        server_groups=lambda **kwargs: [],
+        create_server_group=create_server_group,
+    )
+    osc = mock.Mock()
+    osc.nova.return_value = nova
+    mocker.patch("magnum_cluster_api.clients.get_openstack_api").return_value = osc
+
+    server_group_id = utils._ensure_server_group(
+        "new-server-group",
+        context,
+        policies=["soft-anti-affinity"],
+        project_id="test-ensure-server-group-openstacksdk",
+    )
+
+    assert server_group_id == "created-server-group-id"
+    create_server_group.assert_called_once_with(
+        name="new-server-group", policies=["soft-anti-affinity"]
+    )
+
+
+def test_delete_server_group_openstacksdk(mocker, context):
+    utils.g_server_group_cache.set(
+        "test-delete-server-group-openstacksdk",
+        "old-server-group",
+        "old-server-group-id",
+    )
+    delete_server_group = mock.Mock()
+    nova = SimpleNamespace(
+        server_groups=lambda **kwargs: [],
+        delete_server_group=delete_server_group,
+    )
+    osc = mock.Mock()
+    osc.nova.return_value = nova
+    mocker.patch("magnum_cluster_api.clients.get_openstack_api").return_value = osc
+
+    utils._delete_server_group(
+        "old-server-group",
+        context,
+        project_id="test-delete-server-group-openstacksdk",
+    )
+
+    delete_server_group.assert_called_once_with(
+        "old-server-group-id", ignore_missing=True
+    )
 
 
 class TestGenerateCloudControllerManagerConfig:

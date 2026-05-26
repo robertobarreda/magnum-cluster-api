@@ -1156,7 +1156,12 @@ def get_server_group_id(
 
     # Check if the server group exists already
     osc = clients.get_openstack_api(ctx)
-    server_groups = osc.nova().server_groups.list(all_projects=ctx.is_admin)
+    nova = osc.nova()
+    server_groups_client = nova.server_groups
+    if hasattr(server_groups_client, "list"):
+        server_groups = server_groups_client.list(all_projects=ctx.is_admin)
+    else:
+        server_groups = nova.server_groups(all_projects=ctx.is_admin)
     server_group_id_list = []
     for sg in server_groups:
         if sg.name == name:
@@ -1276,7 +1281,12 @@ def _ensure_server_group(
         policies = DEFAULT_SERVER_GROUP_POLICIES
 
     # NOTE(oleks): Requires API microversion 2.15 or later for soft-affinity and soft-anti-affinity policy rules.
-    server_group = osc.nova().server_groups.create(name=name, policies=policies)
+    nova = osc.nova()
+    server_groups_client = nova.server_groups
+    if hasattr(server_groups_client, "create"):
+        server_group = server_groups_client.create(name=name, policies=policies)
+    else:
+        server_group = nova.create_server_group(name=name, policies=policies)
     g_server_group_cache.set(project_id, name, server_group.id)
     return server_group.id
 
@@ -1292,7 +1302,12 @@ def _delete_server_group(
 
     osc = clients.get_openstack_api(ctx)
     try:
-        osc.nova().server_groups.delete(server_group_id)
+        nova = osc.nova()
+        server_groups_client = nova.server_groups
+        if hasattr(server_groups_client, "delete"):
+            server_groups_client.delete(server_group_id)
+        else:
+            nova.delete_server_group(server_group_id, ignore_missing=True)
     except nova_exception.NotFound:
         return
 
