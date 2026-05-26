@@ -39,7 +39,11 @@ def is_service_enabled(service_type: str) -> bool:
     keystone = osc.keystone()
 
     try:
-        service = keystone.client.services.list(type=service_type)
+        services_client = keystone.client.services
+        if hasattr(services_client, "list"):
+            service = services_client.list(type=service_type)
+        else:
+            service = keystone.client.services(type=service_type)
     except Exception:
         LOG.exception("Failed to list services")
         raise exception.ServicesListFailed()
