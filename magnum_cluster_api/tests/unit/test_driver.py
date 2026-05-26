@@ -13,6 +13,7 @@
 # under the License.
 
 import re
+from types import SimpleNamespace
 from unittest import mock
 
 import openstack
@@ -27,7 +28,34 @@ from oslo_serialization import base64, jsonutils  # type: ignore
 from oslo_utils import uuidutils  # type: ignore
 from responses import matchers
 
+from magnum_cluster_api import driver as mcapi_driver
 from magnum_cluster_api import objects, resources
+
+
+def test_get_application_credentials_manager_attribute():
+    manager = SimpleNamespace(create=mock.Mock(), find=mock.Mock())
+    osc = SimpleNamespace(
+        keystone=mock.Mock(
+            return_value=SimpleNamespace(
+                client=SimpleNamespace(application_credentials=manager)
+            )
+        )
+    )
+
+    assert mcapi_driver._get_application_credentials_manager(osc) is manager
+
+
+def test_get_application_credentials_manager_callable():
+    manager = SimpleNamespace(create=mock.Mock(), find=mock.Mock())
+    osc = SimpleNamespace(
+        keystone=mock.Mock(
+            return_value=SimpleNamespace(
+                client=SimpleNamespace(application_credentials=lambda: manager)
+            )
+        )
+    )
+
+    assert mcapi_driver._get_application_credentials_manager(osc) is manager
 
 
 @pytest.mark.parametrize(

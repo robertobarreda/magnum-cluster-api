@@ -45,6 +45,13 @@ def cluster_lock_wrapper(func):
     return wrapper
 
 
+def _get_application_credentials_manager(osc):
+    manager = osc.keystone().client.application_credentials
+    if hasattr(manager, "create") or hasattr(manager, "find"):
+        return manager
+    return manager()
+
+
 class BaseDriver(driver.Driver):
     def __init__(self):
         self.k8s_api = clients.get_pykube_api()
@@ -89,7 +96,7 @@ class BaseDriver(driver.Driver):
     ):
         osc = clients.get_openstack_api(context)
 
-        credential = osc.keystone().client.application_credentials.create(
+        credential = _get_application_credentials_manager(osc).create(
             user=cluster.user_id,
             name=cluster.uuid,
             description=f"Magnum cluster ({cluster.uuid})",
@@ -282,7 +289,7 @@ class BaseDriver(driver.Driver):
             # NOTE(maximmonin): Keystone policy may forbid extraction of project
             #                   application credentials with admin rights.
             try:
-                osc.keystone().client.application_credentials.find(
+                _get_application_credentials_manager(osc).find(
                     name=cluster.uuid,
                     user=cluster.user_id,
                 ).delete()
