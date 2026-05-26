@@ -263,8 +263,9 @@ class CloudProviderClusterResourcesSecret(ClusterBase):
 
         osc = clients.get_openstack_api(self.context)
         if cinder.is_enabled(self.cluster):
-            volume_types = osc.cinder().volume_types.list()
-            default_volume_type = osc.cinder().volume_types.default()
+            volume_types = cinder.get_volume_types(self.context)
+            default_volume_type = cinder.get_default_volume_type(self.context)
+            default_volume_type_name = cinder.get_volume_type_name(default_volume_type)
             data = {
                 **data,
                 **magnum_cluster_api.Driver.get_cinder_csi_cluster_resource_secret_data(
@@ -281,21 +282,25 @@ class CloudProviderClusterResourcesSecret(ClusterBase):
                                     {
                                         "storageclass.kubernetes.io/is-default-class": "true"
                                     }
-                                    if default_volume_type.name == vt.name
+                                    if default_volume_type_name
+                                    == cinder.get_volume_type_name(vt)
                                     else {}
                                 ),
-                                "name": "block-%s" % utils.convert_to_rfc1123(vt.name),
+                                "name": "block-%s"
+                                % utils.convert_to_rfc1123(
+                                    cinder.get_volume_type_name(vt)
+                                ),
                             },
                             "provisioner": "cinder.csi.openstack.org",
                             "parameters": {
-                                "type": vt.name,
+                                "type": cinder.get_volume_type_name(vt),
                             },
                             "reclaimPolicy": "Delete",
                             "volumeBindingMode": "Immediate",
                         }
                     )
                     for vt in volume_types
-                    if vt.name != "__DEFAULT__"
+                    if cinder.get_volume_type_name(vt) != "__DEFAULT__"
                 },
             }
 
@@ -1005,7 +1010,8 @@ class Cluster(ClusterBase):
 
     def get_object(self) -> dict:
         osc = clients.get_openstack_api(self.context)
-        default_volume_type = osc.cinder().volume_types.default()
+        default_volume_type = cinder.get_default_volume_type(self.context)
+        default_volume_type_name = cinder.get_volume_type_name(default_volume_type)
         pod_cidr = DEFAULT_POD_CIDR
         if self.cluster.cluster_template.network_driver == "calico":
             pod_cidr = self.cluster.labels.get(
@@ -1301,7 +1307,7 @@ class Cluster(ClusterBase):
                             "name": "dockerVolumeType",
                             "value": self.cluster.labels.get(
                                 "docker_volume_type",
-                                default_volume_type.name,
+                                default_volume_type_name,
                             ),
                         },
                         {
@@ -1325,7 +1331,7 @@ class Cluster(ClusterBase):
                             "name": "etcdVolumeType",
                             "value": self.cluster.labels.get(
                                 "etcd_volume_type",
-                                default_volume_type.name,
+                                default_volume_type_name,
                             ),
                         },
                         {

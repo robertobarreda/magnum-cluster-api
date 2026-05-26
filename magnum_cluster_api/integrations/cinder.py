@@ -28,6 +28,37 @@ def is_enabled(cluster: objects.Cluster) -> bool:
     ) or common.is_enabled(cluster, "cinder_csi_enabled", "block-storage")
 
 
+def get_volume_type_name(volume_type):
+    if hasattr(volume_type, "name"):
+        return volume_type.name
+    return volume_type["name"]
+
+
+def get_volume_types(context):
+    osc = clients.get_openstack_api(context)
+    cinder_client = osc.cinder()
+    volume_types = getattr(cinder_client, "volume_types", None)
+    if volume_types is not None:
+        return list(volume_types.list())
+    return list(cinder_client.types())
+
+
+def get_default_volume_type(context):
+    osc = clients.get_openstack_api(context)
+    cinder_client = osc.cinder()
+    volume_types = getattr(cinder_client, "volume_types", None)
+    if volume_types is not None:
+        return volume_types.default()
+
+    volume_types = get_volume_types(context)
+    for volume_type in volume_types:
+        if get_volume_type_name(volume_type) == "__DEFAULT__":
+            return volume_type
+    if volume_types:
+        return volume_types[0]
+    return None
+
+
 def get_default_boot_volume_type(context):
     """
     Get the default boot volume type since the existing function
@@ -41,10 +72,9 @@ def get_default_boot_volume_type(context):
     if CONF.cinder.default_boot_volume_type:
         return CONF.cinder.default_boot_volume_type
 
-    osc = clients.get_openstack_api(context)
-    default_volume_type = osc.cinder().volume_types.default()
+    default_volume_type = get_default_volume_type(context)
 
     if default_volume_type is None:
         raise exception.VolumeTypeNotFound()
 
-    return default_volume_type.name
+    return get_volume_type_name(default_volume_type)
