@@ -58,6 +58,66 @@ def test_get_application_credentials_manager_callable():
     assert mcapi_driver._get_application_credentials_manager(osc) is manager
 
 
+def test_create_application_credential_openstacksdk():
+    credential = SimpleNamespace(id="credential-id", secret="credential-secret")
+
+    class IdentityProxy:
+        create_application_credential = mock.Mock(return_value=credential)
+        find_application_credential = mock.Mock()
+        delete_application_credential = mock.Mock()
+
+    identity = IdentityProxy()
+    osc = SimpleNamespace(
+        keystone=mock.Mock(return_value=SimpleNamespace(client=identity))
+    )
+
+    assert (
+        mcapi_driver._create_application_credential(
+            osc,
+            user="user-id",
+            name="cluster-id",
+            description="cluster description",
+        )
+        is credential
+    )
+    IdentityProxy.create_application_credential.assert_called_once_with(
+        user="user-id",
+        name="cluster-id",
+        description="cluster description",
+    )
+
+
+def test_delete_application_credential_openstacksdk():
+    credential = SimpleNamespace(id="credential-id")
+
+    class IdentityProxy:
+        create_application_credential = mock.Mock()
+        find_application_credential = mock.Mock(return_value=credential)
+        delete_application_credential = mock.Mock()
+
+    identity = IdentityProxy()
+    osc = SimpleNamespace(
+        keystone=mock.Mock(return_value=SimpleNamespace(client=identity))
+    )
+
+    mcapi_driver._delete_application_credential(
+        osc,
+        user="user-id",
+        name="cluster-id",
+    )
+
+    IdentityProxy.find_application_credential.assert_called_once_with(
+        "user-id",
+        "cluster-id",
+        ignore_missing=True,
+    )
+    IdentityProxy.delete_application_credential.assert_called_once_with(
+        "user-id",
+        credential,
+        ignore_missing=True,
+    )
+
+
 @pytest.mark.parametrize(
     "auto_scaling_enabled", [True, False], ids=lambda x: f"auto_scaling_enabled={x}"
 )

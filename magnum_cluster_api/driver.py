@@ -52,6 +52,55 @@ def _get_application_credentials_manager(osc):
     return manager()
 
 
+def _is_openstacksdk_application_credentials_client(client):
+    return all(
+        callable(getattr(type(client), method, None))
+        for method in (
+            "create_application_credential",
+            "find_application_credential",
+            "delete_application_credential",
+        )
+    )
+
+
+def _create_application_credential(osc, user, name, description):
+    client = osc.keystone().client
+    if _is_openstacksdk_application_credentials_client(client):
+        return client.create_application_credential(
+            user=user,
+            name=name,
+            description=description,
+        )
+
+    return _get_application_credentials_manager(osc).create(
+        user=user,
+        name=name,
+        description=description,
+    )
+
+
+def _delete_application_credential(osc, user, name):
+    client = osc.keystone().client
+    if _is_openstacksdk_application_credentials_client(client):
+        credential = client.find_application_credential(
+            user,
+            name,
+            ignore_missing=True,
+        )
+        if credential is not None:
+            client.delete_application_credential(
+                user,
+                credential,
+                ignore_missing=True,
+            )
+        return
+
+    _get_application_credentials_manager(osc).find(
+        name=name,
+        user=user,
+    ).delete()
+
+
 class BaseDriver(driver.Driver):
     def __init__(self):
         self.k8s_api = clients.get_pykube_api()
@@ -96,7 +145,8 @@ class BaseDriver(driver.Driver):
     ):
         osc = clients.get_openstack_api(context)
 
-        credential = _get_application_credentials_manager(osc).create(
+        credential = _create_application_credential(
+            osc,
             user=cluster.user_id,
             name=cluster.uuid,
             description=f"Magnum cluster ({cluster.uuid})",
@@ -289,10 +339,11 @@ class BaseDriver(driver.Driver):
             # NOTE(maximmonin): Keystone policy may forbid extraction of project
             #                   application credentials with admin rights.
             try:
-                _get_application_credentials_manager(osc).find(
-                    name=cluster.uuid,
+                _delete_application_credential(
+                    osc,
                     user=cluster.user_id,
-                ).delete()
+                    name=cluster.uuid,
+                )
             except keystoneauth1.exceptions.http.NotFound:
                 pass
             except keystoneauth1.exceptions.http.Forbidden:
