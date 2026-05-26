@@ -19,7 +19,7 @@ from magnum_cluster_api.integrations import common
 
 
 def test_is_service_enabled_openstacksdk(mocker):
-    services = mock.Mock(return_value=[SimpleNamespace(enabled=True)])
+    services = mock.Mock(return_value=iter([SimpleNamespace(enabled=True)]))
     keystone = SimpleNamespace(
         client=SimpleNamespace(services=lambda **kwargs: services(**kwargs))
     )
@@ -32,7 +32,7 @@ def test_is_service_enabled_openstacksdk(mocker):
 
 
 def test_is_service_enabled_openstacksdk_disabled(mocker):
-    services = mock.Mock(return_value=[SimpleNamespace(enabled=False)])
+    services = mock.Mock(return_value=iter([SimpleNamespace(enabled=False)]))
     keystone = SimpleNamespace(
         client=SimpleNamespace(services=lambda **kwargs: services(**kwargs))
     )

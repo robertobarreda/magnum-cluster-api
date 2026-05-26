@@ -43,7 +43,7 @@ def is_service_enabled(service_type: str) -> bool:
         if hasattr(services_client, "list"):
             service = services_client.list(type=service_type)
         else:
-            service = keystone.client.services(type=service_type)
+            service = list(keystone.client.services(type=service_type))
     except Exception:
         LOG.exception("Failed to list services")
         raise exception.ServicesListFailed()
